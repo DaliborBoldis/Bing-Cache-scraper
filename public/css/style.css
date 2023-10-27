@@ -1,0 +1,141 @@
+body {
+	font-family: Arial, sans-serif;
+	background-color: #f2f2f2;
+}
+
+h1 {
+	text-align: center;
+	font-size: 36px;
+	margin-top: 50px;
+}
+
+label {
+	font-size: 24px;
+	margin-right: 10px;
+}
+
+input[type="text"] {
+	font-size: 18px;
+	padding: 10px;
+	border: none;
+	border-radius: 5px;
+	margin-right: 10px;
+}
+
+button {
+	font-size: 18px;
+	padding: 10px;
+	border: none;
+	border-radius: 5px;
+	background-color: #008cba;
+	color: white;
+	cursor: pointer;
+}
+
+.CacheLinksTable,
+.keywordsTable {
+	width: 100%;
+	border-collapse: collapse;
+	font-family: Arial, sans-serif;
+	margin-top: 10px;
+}
+
+.CacheLinksTable th,
+.CacheLinksTable td,
+.keywordsTable th,
+.keywordsTable td {
+	border: 1px solid #ddd;
+	padding: 8px;
+	text-align: left;
+}
+
+.CacheLinksTable th,
+.keywordsTable th {
+	background-color: #f2f2f2;
+	font-weight: bold;
+}
+
+.CacheLinksTable tr:nth-child(even),
+.keywordsTable tr:nth-child(even) {
+	background-color: #f8f8f8;
+}
+
+.CacheLinksTable tr:hover,
+.keywordsTable tr:hover {
+	background-color: #eee;
+}
+
+.CacheLinksTable a,
+.keywordsTable a {
+	color: #007bff;
+	text-decoration: none;
+}
+
+.CacheLinksTable a:hover,
+.keywordsTable a:hover {
+	text-decoration: underline;
+}
+
+tr:nth-child(even) {
+	background-color: #f2f2f2;
+}
+
+@media only screen and (max-width: 768px) {
+	label {
+		font-size: 20px;
+	}
+
+	input[type="text"] {
+		font-size: 16px;
+	}
+
+	button {
+		font-size: 16px;
+		padding: 8px;
+	}
+
+	th {
+		font-size: 18px;
+	}
+
+	td {
+		font-size: 16px;
+		padding: 4px;
+	}
+
+	.data_table {
+		width: 80%; /* Set a fixed width for the table */
+		max-width: 1000px; /* You can set a max-width if you want to limit the table size */
+		border-collapse: collapse;
+		font-family: Arial, sans-serif;
+		margin-top: 10px;
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	.data_table th,
+	.data_table td {
+		border: 5px solid #ddd;
+		padding: 8px;
+		text-align: left;
+	}
+
+	.data_table th {
+		background-color: #f2f2f2;
+		font-weight: bold;
+	}
+
+	.data_table tr:nth-child(even) {
+		background-color: #f8f8f8;
+	}
+
+	.data_table tr:hover {
+		background-color: #eee;
+	}
+
+	.data_table span.show-more {
+		color: #007bff;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+}

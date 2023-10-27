@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Scrape Bing Data</title>
+		<link rel="stylesheet" type="text/css" href="/css/style.css" />
+
+		<style>
+			/* Style for the settings window */
+			#settings {
+			  position: absolute;
+			  top: 10px;
+			  right: 10px;
+			  padding: 10px;
+			  background-color: #fff;
+			  border: 1px solid #ccc;
+			  box-shadow: 0px 0px 5px #ccc;
+			}
+			#settings h2 {
+			  margin-top: 0;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Scrape Bing Data</h1>
+
+		<div id="settings">
+			<h2>Settings</h2>
+			<form>
+				<label for="random-keywords-count">Random keywords count:</label>
+				<input type="number" id="random-keywords-count" name="random-keywords-count" min="1" max="10" value="1" /><br />
+				<label for="bing-queue-concurrent">Bing queue concurrent:</label>
+				<input type="number" id="bing-queue-concurrent" name="bing-queue-concurrent" min="1" max="5" value="1" /><br />
+				<label for="bing-queue-delay">Bing queue delay(ms):</label>
+				<input type="number" id="bing-queue-delay" name="bing-queue-delay" min="3000" max="10000" step="500" value="5000" /><br />
+				<label for="cache-queue-concurrent">Cache queue concurrent:</label>
+				<input type="number" id="cache-queue-concurrent" name="cache-queue-concurrent" min="1" max="5" value="3" /><br />
+				<label for="cache-queue-delay">Cache queue delay(ms):</label>
+				<input
+					type="number"
+					id="cache-queue-delay"
+					name="cache-queue-delay"
+					min="3000"
+					max="10000"
+					step="500"
+					value="5000"
+				/><br />
+				<label for="autosave-to-database">Autosave to database:</label>
+				<input type="checkbox" id="autosave-to-database" name="autosave-to-database" checked /><br />
+			</form>
+		</div>
+
+		<label for="town">Enter a town:</label>
+		<input type="text" id="town" value="bethel ct" />
+		<button onclick="processKeywords()">Scrape Data</button>
+		<button onclick="ExportData()">Export Data</button>
+		<table id="keywordsTable"></table>
+
+		<table id="CacheLinksTable"></table>
+
+		<script>
+
+			function ExportData() {
+
+			}
+
+			// This block of code listens for the event of the page being loaded. This will update the status in the HTML table.
+			document.addEventListener("DOMContentLoaded", () => {
+				// Create a WebSocket object that connects to the server at the given address
+				const socket = new WebSocket(`ws://${location.hostname}:8080`);
+
+				// Listen for the message event on the WebSocket object
+				socket.addEventListener("message", (event) => {
+					// Parse the incoming message data as JSON
+					const data = JSON.parse(event.data);
+					// Call the updateStatusByIndex function with the data from the message
+					updateStatusByIndex(data[0], data[1], data[2], data[3]);
+				});
+			});
+
+			async function updateStatusByIndex(index, newStatus, method, data) {
+				const tableId = method === "bing" ? "keywordsTable" : "CacheLinksTable";
+
+				const table = document.getElementById(tableId);
+
+				const rows = table.getElementsByTagName("tr");
+				for (let i = 1; i < rows.length; i++) {
+					const rowIndexCell = rows[i].getElementsByTagName("td")[0];
+					const rowIndex = parseInt(rowIndexCell.textContent, 10);
+					if (rowIndex === index) {
+						const statusCell = rows[i].getElementsByTagName("td")[2];
+						statusCell.textContent = newStatus;
+						let color;
+						if (newStatus === "Failed") color = "lightcoral";
+						if (newStatus === "Started") color = "lightyellow";
+						if (newStatus === "Finished") color = "lightgreen";
+						if (color) rows[i].style.backgroundColor = color;
+
+						if (data) {
+							const extractedData = extractDescriptionData(data.pageDescription);
+							data.likes = extractedData.likes;
+							data.talking = extractedData.talking;
+							data.wereHere = extractedData.wereHere;
+
+							const outerTable = document.createElement("table");
+							outerTable.style.width = "60%";
+							outerTable.style.marginLeft = "30%";
+							outerTable.style.borderStyle = "double";
+							rows[i].parentNode.insertBefore(outerTable, rows[i].nextSibling);
+
+							const newTableHTML = `
+			         <table id="data_table" class="data_table" index="${data.index}" style="table-layout: fixed;">
+			         </table>
+			       `;
+
+							const tempDiv = document.createElement("div");
+							tempDiv.innerHTML = newTableHTML;
+							const newTable = tempDiv.querySelector("table");
+
+							outerTable.appendChild(newTable);
+
+							const centerDiv = document.createElement("div");
+							centerDiv.style.textAlign = "center";
+
+							addButtonsToTable(centerDiv, data.index);
+							outerTable.parentNode.insertBefore(centerDiv, outerTable.nextSibling);
+
+							const keys = Object.keys(data).filter((key) => key !== "bingCacheURL" && key !== "index");
+
+							const labelsMap = {
+								address: "Address",
+								email: "Email",
+								facebookPageURL: "Facebook URL",
+								pageDescription: "Page description",
+								pageTags: "Tags",
+								pageTitle: "Title",
+								phone: "Phone",
+								website: "Website",
+								web_addressLinks: "Links found on website",
+								web_emailLinks: "Emails found on website",
+								web_errors: "Website loading errors",
+								web_facebookLinks: "Facebook links found on website",
+								web_instagramLinks: "Instagram links found on website",
+								web_phoneLinks: "Phone numbers found on website",
+								web_twitterLinks: "Twitter links found on website",
+								likes: "Facebook - Page likes",
+								talking: "Facebook - Talking about this",
+								wereHere: "Facebook - Were Here",
+							};
+
+							for (let j = 0; j < keys.length; j += 2) {
+								const row = newTable.insertRow(-1);
+								const createCell = (key) => {
+									const cell = row.insertCell(-1);
+									cell.style.width = "50%";
+									const cellLabel = document.createElement("span");
+									cellLabel.textContent = labelsMap[key] + ": ";
+									cell.appendChild(cellLabel);
+
+									const cellData = document.createElement("span");
+									const fullData = data[key] !== null && data[key] !== undefined ? data[key].toString() : "";
+									const shortData = fullData.length > 70 ? fullData.substring(0, 70) + "..." : fullData;
+
+									cellData.textContent = shortData;
+									cell.setAttribute("key", key);
+									cell.setAttribute("data", fullData);
+									cell.setAttribute("shortdata", shortData);
+
+									highlightCells(cellLabel.textContent, cellData.textContent, cell);
+
+									cell.appendChild(cellData);
+
+									if (cell.getAttribute("data").length > 70) {
+										const showMore = document.createElement("span");
+
+										(showMore.textContent = " Show more"), (showMore.style.cursor = "pointer"), (showMore.style.color = "blue");
+
+										showMore.addEventListener("click", () => {
+											if (cellData.textContent === cell.getAttribute("shortdata")) {
+												cellData.textContent = cell.getAttribute("data");
+												showMore.textContent = " Show less";
+											} else {
+												cellData.textContent = cell.getAttribute("shortdata");
+												showMore.textContent = " Show more";
+											}
+										});
+										cell.appendChild(showMore);
+									}
+								};
+
+								createCell(keys[j]);
+								if (keys[j + 1]) {
+									createCell(keys[j + 1]);
+								}
+							}
+
+							const checkbox = document.getElementById("autosave-to-database");
+
+							if (checkbox.checked) {
+								const getTargetTable = () => document.querySelector(`table#data_table[index="${index}"]`);
+								const targetTable = getTargetTable(index);
+								const result = Object.fromEntries(
+									[...targetTable.querySelectorAll("td[key][data]")].map((td) => [td.getAttribute("key"), td.getAttribute("data")])
+								);
+
+								await SaveToDatabase(result).then((res) => {
+									targetTable.style.backgroundColor = "#8af28c";
+								});
+							}
+						}
+
+						break;
+					}
+				}
+			}
+			function extractDescriptionData(pageDescription) {
+				let description = pageDescription.replace(",", "");
+
+				const likesMatch = description.match(/(\d+)\s+likes/);
+				const talkingMatch = description.match(/(\d+)\s+talking/);
+				const wereHereMatch = description.match(/(\d+)\s+were\s+here/);
+
+				const likes = likesMatch ? parseInt(likesMatch[1], 10) : null;
+				const talking = talkingMatch ? parseInt(talkingMatch[1], 10) : null;
+				const wereHere = wereHereMatch ? parseInt(wereHereMatch[1], 10) : null;
+
+				return { likes, talking, wereHere };
+			}
+
+			function highlightCells(cellLabel, cellData, cell, checkCondition) {
+				const setColor = () => {
+					cell.style.color = "IndianRed";
+					cell.style.fontWeight = "bold";
+				};
+
+				const conditions = {
+					"Facebook URL: ": ["/posts/", "/groups/", "/profile", "/videos/", "/reviews/"],
+					"Website: ": [".gov", "instagram.com", "facebook.com", "twitter.com", "linkedin.com"],
+					"Tags: ": ["Community", "Groups", "Government", "Religious", "Nonprofit", "Non-Business"],
+					"Email: ": [".gov"],
+					"Website errors: ": null,
+				};
+
+				if (conditions.hasOwnProperty(cellLabel)) {
+					if (conditions[cellLabel] === null) {
+						if (!checkCondition) setColor();
+					} else {
+						if (conditions[cellLabel].some((value) => cellData.includes(value))) {
+							if (checkCondition) return true;
+
+							if (!checkCondition) setColor();
+						}
+					}
+				}
+				return false;
+			}
+
+			function addButtonsToTable(centerDiv, index) {
+				const getTableAttributes = (targetTable) =>
+					Object.fromEntries([...targetTable.attributes].map((attr) => [attr.name, attr.value]));
+
+				const createButton = (color, innerHTML) =>
+					Object.assign(document.createElement("button"), {
+						type: "button",
+						innerHTML,
+						style: `background-color: ${color}; margin: 20px 20px 20px 0;`,
+					});
+
+				const getTargetTable = () => document.querySelector(`table#data_table[index="${index}"]`);
+
+				const checkbox = document.getElementById("autosave-to-database").checked;
+
+				const saveButton = createButton("lightgreen", "Save to Database");
+				saveButton.onclick = async () => {
+					const targetTable = getTargetTable(index);
+					const result = Object.fromEntries(
+						[...targetTable.querySelectorAll("td[key][data]")].map((td) => [td.getAttribute("key"), td.getAttribute("data")])
+					);
+
+					if (!checkbox)
+						await SaveToDatabase(result).then((res) => {
+							targetTable.style.backgroundColor = "#8af28c";
+						});
+
+					if (checkbox) alert("Auto save enabled - this button does not work!");
+				};
+
+				const editButton = createButton("lightorange", "Edit");
+
+				editButton.onclick = () => {
+					const targetTable = getTargetTable(index);
+					const cells = targetTable.getElementsByTagName("td");
+
+					if (editButton.innerHTML === "Edit") {
+						[...cells].forEach((cell) => {
+							const contentValue = cell.getAttribute("data");
+							const contentSpans = cell.querySelectorAll("span");
+							const contentSpan = contentSpans.length > 1 ? contentSpans[1] : null;
+							const input = Object.assign(document.createElement("input"), {
+								type: "text",
+								style: "width: 500px;",
+								value: contentValue,
+							});
+
+							if (contentSpan) {
+								contentSpan.style.display = "none";
+							}
+							cell.appendChild(input);
+						});
+
+						discardButton.disabled = saveButton.disabled = true;
+						editButton.innerHTML = "Save";
+					} else {
+						[...cells].forEach((cell) => {
+							const contentSpans = cell.querySelectorAll("span");
+							const contentSpan = contentSpans.length > 1 ? contentSpans[1] : null;
+
+							const input = cell.querySelector("input");
+
+							if (input && contentSpan) {
+								cell.setAttribute("data", input.value);
+								cell.setAttribute("shortdata", input.value.length > 70 ? input.value.substring(0, 70) + "..." : input.value);
+
+								contentSpan.innerHTML = input.value;
+								contentSpan.style.display = "inline";
+								input.remove();
+							}
+						});
+
+						discardButton.disabled = saveButton.disabled = false;
+						editButton.innerHTML = "Edit";
+					}
+				};
+
+				const discardButton = createButton("lightcoral", "Discard");
+
+				discardButton.onclick = () => {
+					const targetTable = getTargetTable(index);
+					const cells = targetTable.getElementsByTagName("td");
+
+					if (discardButton.innerHTML === "Discard") {
+						[...cells].forEach((cell) => {
+							const span = document.createElement("span");
+							span.style.cssText = "font-weight: bold; text-decoration: line-through;";
+							span.innerHTML = cell.innerHTML;
+
+							cell.innerHTML = "";
+							cell.appendChild(span);
+						});
+						saveButton.disabled = editButton.disabled = true;
+						discardButton.innerHTML = "Undo";
+					} else {
+						[...cells].forEach((cell) => {
+							const span = cell.querySelector("span");
+
+							if (span) cell.innerHTML = span.innerHTML;
+						});
+						saveButton.disabled = editButton.disabled = false;
+						discardButton.innerHTML = "Discard";
+					}
+				};
+				centerDiv.append(saveButton, editButton, discardButton);
+			}
+		</script>
+
+		<script src="doWork.js"></script>
+		<script src="saveToDatabase.js"></script>
+	</body>
+</html>
